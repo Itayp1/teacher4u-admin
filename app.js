@@ -68,7 +68,7 @@ passport.use(
     {
       clientID: process.env.clientID,
       clientSecret: process.env.clientSecret,
-      callbackURL: "https://teacher4u-admin.herokuapp.com/auth/google/secrets",
+      callbackURL: process.env.callbackURL,
       userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
     },
     function (accessToken, refreshToken, profile, cb) {
