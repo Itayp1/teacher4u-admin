@@ -14,6 +14,10 @@ const findOrCreate = require("mongoose-findorcreate");
 const PORT = process.env.PORT || "3000";
 
 const app = express();
+const genSchema = new mongoose.Schema({}, { strict: false });
+const Teachers = mongoose.model("teachers", genSchema);
+const Students = mongoose.model("students", genSchema);
+const Timetables = mongoose.model("timetables", genSchema);
 
 app.use(express.static("public"));
 app.set("view engine", "ejs");
@@ -47,7 +51,6 @@ const userSchema = new mongoose.Schema({
 });
 
 userSchema.plugin(passportLocalMongoose);
-userSchema.plugin(findOrCreate);
 
 const User = new mongoose.model("User", userSchema);
 
@@ -58,6 +61,7 @@ passport.serializeUser(function (user, done) {
 });
 
 passport.deserializeUser(function (id, done) {
+
   User.findById(id, function (err, user) {
     done(err, user);
   });
@@ -72,17 +76,23 @@ passport.use(
       userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
     },
     function (accessToken, refreshToken, profile, cb) {
-      console.log(profile);
+      // console.log(profile);
 
-      User.findOrCreate({ googleId: profile.id }, function (err, user) {
+      User.findOne({ googleId: profile.id }, function (err, user) {
+
+        console.log("google id: " + profile.id)
+
         return cb(err, user);
       });
+
     }
   )
 );
 
 app.get("/", function (req, res) {
-  res.render("home");
+  const error = {}
+  error.message = ""
+  res.render("home", { error: error });
 });
 
 app.get(
@@ -95,95 +105,44 @@ app.get(
   passport.authenticate("google", { failureRedirect: "/login" }),
   function (req, res) {
     // Successful authentication, redirect to secrets.
+
     res.redirect("/secrets");
   }
 );
 
 app.get("/login", function (req, res) {
-  res.render("login");
+  const error = {}
+  error.message = "invalid email"
+  res.render("home", { error: error });
 });
 
-app.get("/register", function (req, res) {
-  res.render("register");
-});
 
-app.get("/secrets", function (req, res) {
-  User.find({ secret: { $ne: null } }, function (err, foundUsers) {
-    if (err) {
-      console.log(err);
-    } else {
-      if (foundUsers) {
-        res.render("secrets", { usersWithSecrets: foundUsers });
-      }
-    }
+
+app.get("/secrets", async function (req, res) {
+  const result = await Promise.all([
+    Teachers.find(),
+    Students.find(),
+    Timetables.find(),
+  ]);
+
+
+
+  res.render("secrets", {
+    timetables: JSON.parse(JSON.stringify(result[2])),
+    students: JSON.parse(JSON.stringify(result[1])),
+    teachers: JSON.parse(JSON.stringify(result[0])),
   });
 });
 
-app.get("/submit", function (req, res) {
-  if (req.isAuthenticated()) {
-    res.render("submit");
-  } else {
-    res.redirect("/login");
-  }
-});
-
-app.post("/submit", function (req, res) {
-  const submittedSecret = req.body.secret;
-
-  //Once the user is authenticated and their session gets saved, their user details are saved to req.user.
-  // console.log(req.user.id);
-
-  User.findById(req.user.id, function (err, foundUser) {
-    if (err) {
-      console.log(err);
-    } else {
-      if (foundUser) {
-        foundUser.secret = submittedSecret;
-        foundUser.save(function () {
-          res.redirect("/secrets");
-        });
-      }
-    }
-  });
-});
 
 app.get("/logout", function (req, res) {
   req.logout();
   res.redirect("/");
 });
 
-app.post("/register", function (req, res) {
-  User.register({ username: req.body.username }, req.body.password, function (
-    err,
-    user
-  ) {
-    if (err) {
-      console.log(err);
-      res.redirect("/register");
-    } else {
-      passport.authenticate("local")(req, res, function () {
-        res.redirect("/secrets");
-      });
-    }
-  });
-});
 
-app.post("/login", function (req, res) {
-  const user = new User({
-    username: req.body.username,
-    password: req.body.password,
-  });
 
-  req.login(user, function (err) {
-    if (err) {
-      console.log(err);
-    } else {
-      passport.authenticate("local")(req, res, function () {
-        res.redirect("/secrets");
-      });
-    }
-  });
-});
+
 app.listen(PORT, () => {
   console.log("Server started on port 3000.");
 });
