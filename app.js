@@ -1,5 +1,7 @@
 //jshint esversion:6
-require("dotenv").config();
+if (process.env.ENV != "prod") {
+  require("dotenv").config();
+}
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
@@ -9,6 +11,7 @@ const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const findOrCreate = require("mongoose-findorcreate");
+const PORT = process.env.PORT || "3000";
 
 const app = express();
 
@@ -31,7 +34,9 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-mongoose.connect("mongodb://localhost:27017/userDB", { useNewUrlParser: true });
+mongoose.connect(process.env.MONGO_CONNECTION_STRING, {
+  useNewUrlParser: true,
+});
 mongoose.set("useCreateIndex", true);
 
 const userSchema = new mongoose.Schema({
@@ -61,10 +66,9 @@ passport.deserializeUser(function (id, done) {
 passport.use(
   new GoogleStrategy(
     {
-      clientID:
-        "717985807136-a4p24lvbp6saivag33h53uu6od7oh8o4.apps.googleusercontent.com",
-      clientSecret: "6WCstLRJbsZQGQfZbkkUPOgl",
-      callbackURL: "http://localhost:3000/auth/google/secrets",
+      clientID: process.env.clientID,
+      clientSecret: process.env.clientSecret,
+      callbackURL: "https://teacher4u-admin.herokuapp.com/auth/google/secrets",
       userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
     },
     function (accessToken, refreshToken, profile, cb) {
@@ -180,7 +184,6 @@ app.post("/login", function (req, res) {
     }
   });
 });
-
-app.listen(3000, function () {
+app.listen(PORT, () => {
   console.log("Server started on port 3000.");
 });
